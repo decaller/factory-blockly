@@ -1,8 +1,28 @@
-import Phaser from 'phaser';
-import { drawGrid, drawConveyorBelts, createLevel } from './gameScene/rendering';
-import { isOnBelt, findEmptyDispenserCell, spawnCrate, getCrateAt, destroyCrate } from './gameScene/crates';
-import { runCommandQueue, resetLevel, logPositions, getForwardXY } from './gameScene/flow';
-import { executeCommand } from './gameScene/commands';
+import Phaser from "phaser";
+import {
+  drawGrid,
+  drawConveyorBelts,
+  createLevel,
+} from "./gameScene/rendering";
+import {
+  isOnBelt,
+  findEmptyDispenserCell,
+  spawnCrate,
+  getCrateAt,
+  destroyCrate,
+} from "./gameScene/crates";
+import {
+  runCommandQueue,
+  resetLevel,
+  logPositions,
+  getForwardXY,
+  updateTickStatsUI,
+  pauseExecution,
+  resumeExecution,
+  togglePauseExecution,
+  waitIfPaused,
+} from "./gameScene/flow";
+import { executeCommand } from "./gameScene/commands";
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -11,10 +31,21 @@ export class GameScene extends Phaser.Scene {
     this.tileSize = 64;
     this.gridSize = 10;
     this.robot = null;
+    this.robot2 = null;
     this.carriedCrate = null;
+    this.carriedCrate2 = null;
     this.crates = [];
     this.score = 0;
     this.scoreText = null;
+    this.ticksAfterLastScoreText = null;
+    this.avgTicksAfterLastScoreText = null;
+    this.tickCount = 0;
+    this.lastScoreTick = 0;
+    this.totalTicksAfterScore = 0;
+    this.scoreIntervals = 0;
+    this.isPaused = false;
+    this.isRunning = false;
+    this.pauseResumeResolver = null;
 
     this.dispenserBelt = [
       { x: 0, y: 3 },
@@ -40,17 +71,22 @@ export class GameScene extends Phaser.Scene {
 }
 
 Object.assign(GameScene.prototype, {
-    drawGrid,
-    drawConveyorBelts,
-    createLevel,
-    isOnBelt,
-    findEmptyDispenserCell,
-    spawnCrate,
-    getCrateAt,
-    destroyCrate,
-    runCommandQueue,
-    resetLevel,
-    logPositions,
-    getForwardXY,
-    executeCommand
+  drawGrid,
+  drawConveyorBelts,
+  createLevel,
+  isOnBelt,
+  findEmptyDispenserCell,
+  spawnCrate,
+  getCrateAt,
+  destroyCrate,
+  runCommandQueue,
+  resetLevel,
+  logPositions,
+  getForwardXY,
+  updateTickStatsUI,
+  pauseExecution,
+  resumeExecution,
+  togglePauseExecution,
+  waitIfPaused,
+  executeCommand,
 });

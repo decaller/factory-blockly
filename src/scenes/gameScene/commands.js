@@ -18,22 +18,68 @@ function handleLogCommand(command) {
   console.log(`[LOG #${this.logStep}] ${label}: ${logVal}`);
 }
 
-export function executeCommand(command) {
-    return new Promise((resolve) => {
-        const duration = 500;
-        const finish = () => {
-            this.logPositions();
-            resolve();
-        };
+function getRobotContext(scene, robotId) {
+  if (robotId === 2) {
+    return {
+      robot: scene.robot2 || scene.robot,
+      carriedKey: "carriedCrate2",
+    };
+  }
+
+  return {
+    robot: scene.robot,
+    carriedKey: "carriedCrate",
+  };
+}
+
+function isRobotOccupied(scene, gx, gy, excludeRobotId) {
+  if (
+    excludeRobotId !== 1 &&
+    scene.robot &&
+    scene.robot.gridX === gx &&
+    scene.robot.gridY === gy
+  ) {
+    return true;
+  }
+  if (
+    excludeRobotId !== 2 &&
+    scene.robot2 &&
+    scene.robot2.gridX === gx &&
+    scene.robot2.gridY === gy
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function executeCommand(command, robotId = 1) {
+  return new Promise((resolve) => {
+    const duration = 500;
+    const { robot, carriedKey } = getRobotContext(this, robotId);
+
+    const getCarriedCrate = () => this[carriedKey] || null;
+    const setCarriedCrate = (crate) => {
+      this[carriedKey] = crate;
+    };
+
+    const finish = () => {
+      resolve();
+    };
+
+    if (!robot) {
+      console.warn(`Robot ${robotId} not found`);
+      finish();
+      return;
+    }
 
     switch (command) {
       case "MOVE_FORWARD": {
-        console.log("Processing MOVE_FORWARD");
+        console.log(`Robot ${robotId}: MOVE_FORWARD`);
 
         const nextRobot = this.getForwardXY(
-          this.robot.gridX,
-          this.robot.gridY,
-          this.robot.direction,
+          robot.gridX,
+          robot.gridY,
+          robot.direction,
         );
         let canMove = false;
 
@@ -50,12 +96,20 @@ export function executeCommand(command) {
             console.log("Blocked by crate");
             canMove = false;
           }
+          if (
+            canMove &&
+            isRobotOccupied(this, nextRobot.x, nextRobot.y, robotId)
+          ) {
+            console.log("Blocked by robot");
+            canMove = false;
+          }
 
-          if (canMove && this.carriedCrate) {
+          const carriedCrate = getCarriedCrate();
+          if (canMove && carriedCrate) {
             const nextCrate = this.getForwardXY(
               nextRobot.x,
               nextRobot.y,
-              this.robot.direction,
+              robot.direction,
             );
 
             if (
@@ -72,6 +126,13 @@ export function executeCommand(command) {
               console.log("Blocked: Crate hitting another crate");
               canMove = false;
             }
+            if (
+              canMove &&
+              isRobotOccupied(this, nextCrate.x, nextCrate.y, robotId)
+            ) {
+              console.log("Blocked: Crate hitting robot");
+              canMove = false;
+            }
           }
         } else {
           console.log("Blocked: Robot hitting wall");
@@ -79,27 +140,116 @@ export function executeCommand(command) {
         }
 
         if (canMove) {
-          this.robot.gridX = nextRobot.x;
-          this.robot.gridY = nextRobot.y;
-
-          console.log(`Moving to ${this.robot.gridX},${this.robot.gridY}`);
+          robot.gridX = nextRobot.x;
+          robot.gridY = nextRobot.y;
 
           this.tweens.add({
-            targets: this.robot,
-            x: this.robot.gridX * this.tileSize + this.tileSize / 2,
-            y: this.robot.gridY * this.tileSize + this.tileSize / 2,
+            targets: robot,
+            x: robot.gridX * this.tileSize + this.tileSize / 2,
+            y: robot.gridY * this.tileSize + this.tileSize / 2,
             duration,
             onComplete: finish,
           });
 
-          if (this.carriedCrate) {
+          const carriedCrate = getCarriedCrate();
+          if (carriedCrate) {
             const nextCrate = this.getForwardXY(
-              this.robot.gridX,
-              this.robot.gridY,
-              this.robot.direction,
+              robot.gridX,
+              robot.gridY,
+              robot.direction,
             );
-            this.carriedCrate.gridX = nextCrate.x;
-            this.carriedCrate.gridY = nextCrate.y;
+            carriedCrate.gridX = nextCrate.x;
+            carriedCrate.gridY = nextCrate.y;
+          }
+        } else {
+          finish();
+        }
+        break;
+      }
+      case "MOVE_BACKWARD": {
+        console.log(`Robot ${robotId}: MOVE_BACKWARD`);
+
+        const backDir = (robot.direction + 2) % 4;
+        const nextRobot = this.getForwardXY(robot.gridX, robot.gridY, backDir);
+        let canMove = false;
+
+        if (
+          nextRobot.x >= 0 &&
+          nextRobot.x < this.gridSize &&
+          nextRobot.y >= 0 &&
+          nextRobot.y < this.gridSize
+        ) {
+          canMove = true;
+
+          const blockingCrate = this.getCrateAt(nextRobot.x, nextRobot.y);
+          if (blockingCrate) {
+            console.log("Blocked by crate");
+            canMove = false;
+          }
+          if (
+            canMove &&
+            isRobotOccupied(this, nextRobot.x, nextRobot.y, robotId)
+          ) {
+            console.log("Blocked by robot");
+            canMove = false;
+          }
+
+          const carriedCrate = getCarriedCrate();
+          if (canMove && carriedCrate) {
+            const nextCrate = this.getForwardXY(
+              nextRobot.x,
+              nextRobot.y,
+              robot.direction,
+            );
+
+            if (
+              nextCrate.x < 0 ||
+              nextCrate.x >= this.gridSize ||
+              nextCrate.y < 0 ||
+              nextCrate.y >= this.gridSize
+            ) {
+              console.log("Blocked: Crate hitting wall");
+              canMove = false;
+            }
+
+            if (canMove && this.getCrateAt(nextCrate.x, nextCrate.y)) {
+              console.log("Blocked: Crate hitting another crate");
+              canMove = false;
+            }
+            if (
+              canMove &&
+              isRobotOccupied(this, nextCrate.x, nextCrate.y, robotId)
+            ) {
+              console.log("Blocked: Crate hitting robot");
+              canMove = false;
+            }
+          }
+        } else {
+          console.log("Blocked: Robot hitting wall");
+          canMove = false;
+        }
+
+        if (canMove) {
+          robot.gridX = nextRobot.x;
+          robot.gridY = nextRobot.y;
+
+          this.tweens.add({
+            targets: robot,
+            x: robot.gridX * this.tileSize + this.tileSize / 2,
+            y: robot.gridY * this.tileSize + this.tileSize / 2,
+            duration,
+            onComplete: finish,
+          });
+
+          const carriedCrate = getCarriedCrate();
+          if (carriedCrate) {
+            const nextCrate = this.getForwardXY(
+              robot.gridX,
+              robot.gridY,
+              robot.direction,
+            );
+            carriedCrate.gridX = nextCrate.x;
+            carriedCrate.gridY = nextCrate.y;
           }
         } else {
           finish();
@@ -108,12 +258,24 @@ export function executeCommand(command) {
       }
 
       case "TURN_LEFT": {
-        const nextDirLeft = (this.robot.direction + 3) % 4;
+        const nextDirLeft = (robot.direction + 3) % 4;
 
-        if (this.carriedCrate) {
+        const carriedCrate = getCarriedCrate();
+        if (carriedCrate) {
+          const leftOfHeldCrate = this.getForwardXY(
+            carriedCrate.gridX,
+            carriedCrate.gridY,
+            nextDirLeft,
+          );
+          if (this.getCrateAt(leftOfHeldCrate.x, leftOfHeldCrate.y)) {
+            console.log("Turn Blocked: Crate on left side of held crate");
+            finish();
+            return;
+          }
+
           const nextCratePos = this.getForwardXY(
-            this.robot.gridX,
-            this.robot.gridY,
+            robot.gridX,
+            robot.gridY,
             nextDirLeft,
           );
           if (
@@ -131,36 +293,52 @@ export function executeCommand(command) {
             finish();
             return;
           }
+          if (isRobotOccupied(this, nextCratePos.x, nextCratePos.y, robotId)) {
+            console.log("Turn Blocked: Crate would hit robot");
+            finish();
+            return;
+          }
         }
 
-        console.log("Ref: TURN_LEFT");
-        this.robot.direction = nextDirLeft;
+        robot.direction = nextDirLeft;
         this.tweens.add({
-          targets: this.robot,
-          angle: this.robot.angle - 90,
+          targets: robot,
+          angle: robot.angle - 90,
           duration,
           onComplete: finish,
         });
 
-        if (this.carriedCrate) {
+        if (carriedCrate) {
           const nextCrate = this.getForwardXY(
-            this.robot.gridX,
-            this.robot.gridY,
-            this.robot.direction,
+            robot.gridX,
+            robot.gridY,
+            robot.direction,
           );
-          this.carriedCrate.gridX = nextCrate.x;
-          this.carriedCrate.gridY = nextCrate.y;
+          carriedCrate.gridX = nextCrate.x;
+          carriedCrate.gridY = nextCrate.y;
         }
         break;
       }
 
       case "TURN_RIGHT": {
-        const nextDirRight = (this.robot.direction + 1) % 4;
+        const nextDirRight = (robot.direction + 1) % 4;
 
-        if (this.carriedCrate) {
+        const carriedCrate = getCarriedCrate();
+        if (carriedCrate) {
+          const rightOfHeldCrate = this.getForwardXY(
+            carriedCrate.gridX,
+            carriedCrate.gridY,
+            nextDirRight,
+          );
+          if (this.getCrateAt(rightOfHeldCrate.x, rightOfHeldCrate.y)) {
+            console.log("Turn Blocked: Crate on right side of held crate");
+            finish();
+            return;
+          }
+
           const nextCratePos = this.getForwardXY(
-            this.robot.gridX,
-            this.robot.gridY,
+            robot.gridX,
+            robot.gridY,
             nextDirRight,
           );
           if (
@@ -178,44 +356,47 @@ export function executeCommand(command) {
             finish();
             return;
           }
+          if (isRobotOccupied(this, nextCratePos.x, nextCratePos.y, robotId)) {
+            console.log("Turn Blocked: Crate would hit robot");
+            finish();
+            return;
+          }
         }
 
-        console.log("Ref: TURN_RIGHT");
-        this.robot.direction = nextDirRight;
+        robot.direction = nextDirRight;
         this.tweens.add({
-          targets: this.robot,
-          angle: this.robot.angle + 90,
+          targets: robot,
+          angle: robot.angle + 90,
           duration,
           onComplete: finish,
         });
 
-        if (this.carriedCrate) {
+        if (carriedCrate) {
           const nextCrate = this.getForwardXY(
-            this.robot.gridX,
-            this.robot.gridY,
-            this.robot.direction,
+            robot.gridX,
+            robot.gridY,
+            robot.direction,
           );
-          this.carriedCrate.gridX = nextCrate.x;
-          this.carriedCrate.gridY = nextCrate.y;
+          carriedCrate.gridX = nextCrate.x;
+          carriedCrate.gridY = nextCrate.y;
         }
         break;
       }
 
       case "GRAB": {
-        console.log("Ref: GRAB");
         const grabTarget = this.getForwardXY(
-          this.robot.gridX,
-          this.robot.gridY,
-          this.robot.direction,
+          robot.gridX,
+          robot.gridY,
+          robot.direction,
         );
         const targetCrate = this.getCrateAt(grabTarget.x, grabTarget.y);
 
-        if (!this.carriedCrate && targetCrate) {
+        if (!getCarriedCrate() && targetCrate) {
           targetCrate.isCarried = true;
-          this.carriedCrate = targetCrate;
+          setCarriedCrate(targetCrate);
           targetCrate.setDepth(1);
 
-          this.robot.add(targetCrate);
+          robot.add(targetCrate);
           targetCrate.setPosition(this.tileSize, 0);
           targetCrate.setRotation(0);
 
@@ -230,29 +411,26 @@ export function executeCommand(command) {
             },
           });
 
-          console.log("Crate grabbed!");
-
           if (this.isOnBelt(grabTarget.x, grabTarget.y, this.dispenserBelt)) {
             this.time.delayedCall(600, () => {
               this.spawnCrate();
             });
           }
-        } else {
-          console.log("Nothing to grab in front");
         }
+
         setTimeout(finish, duration);
         break;
       }
 
       case "DROP": {
-        console.log("Ref: DROP");
-        if (this.carriedCrate) {
-          const crate = this.carriedCrate;
+        const carriedCrate = getCarriedCrate();
+        if (carriedCrate) {
+          const crate = carriedCrate;
           crate.isCarried = false;
           crate.setDepth(0);
           crate.setScale(1.0);
 
-          this.robot.remove(crate);
+          robot.remove(crate);
           this.add.existing(crate);
 
           const worldX = crate.gridX * this.tileSize + this.tileSize / 2;
@@ -260,12 +438,20 @@ export function executeCommand(command) {
           crate.setPosition(worldX, worldY);
           crate.setRotation(0);
 
-          this.carriedCrate = null;
+          setCarriedCrate(null);
 
           if (this.isOnBelt(crate.gridX, crate.gridY, this.receiverBelt)) {
-            console.log("Crate delivered to receiver belt!");
             this.score++;
             if (this.scoreText) this.scoreText.setText(`Score: ${this.score}`);
+            const ticksAfterLastScore = Math.max(
+              0,
+              (this.tickCount || 0) - (this.lastScoreTick || 0),
+            );
+            this.totalTicksAfterScore =
+              (this.totalTicksAfterScore || 0) + ticksAfterLastScore;
+            this.scoreIntervals = (this.scoreIntervals || 0) + 1;
+            this.lastScoreTick = this.tickCount || 0;
+            this.updateTickStatsUI();
 
             this.tweens.add({
               targets: crate,
@@ -300,11 +486,8 @@ export function executeCommand(command) {
               onComplete: () => feedbackText.destroy(),
             });
           }
-
-          console.log("Crate dropped!");
-        } else {
-          console.log("Nothing to drop");
         }
+
         setTimeout(finish, duration);
         break;
       }

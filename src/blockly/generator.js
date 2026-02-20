@@ -4,6 +4,9 @@ export function defineGenerators() {
   javascriptGenerator.forBlock["robot_move_forward"] = function (block) {
     return "moveForward();\n";
   };
+  javascriptGenerator.forBlock["robot_move_backward"] = function (block) {
+    return "moveBackward();\n";
+  };
 
   javascriptGenerator.forBlock["robot_turn_left"] = function (block) {
     return "turnLeft();\n";
@@ -23,6 +26,9 @@ export function defineGenerators() {
 
   javascriptGenerator.forBlock["robot_start"] = function (block) {
     // ... (existing code, compacted for brevity) ...
+    return "";
+  };
+  javascriptGenerator.forBlock["robot_start_2"] = function (block) {
     return "";
   };
 
