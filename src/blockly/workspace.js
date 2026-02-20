@@ -138,7 +138,7 @@ export function injectBlockly() {
 }
 
 export function getWorkspaceCode(workspace) {
-    // javascriptGenerator.init(workspace); // Ensure generator is initialized? It usually is.
+    javascriptGenerator.init(workspace);
     
     let code = '';
     const startBlocks = workspace.getBlocksByType('robot_start', false); // false = only top level? No, checking hierarchy is expensive, just finding all is fine.
