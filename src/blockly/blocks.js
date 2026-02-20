@@ -46,6 +46,23 @@ export function defineBlocks() {
             "colour": 230,
             "tooltip": "Drops the carried crate at the current location.",
             "helpUrl": ""
+        },
+        {
+            "type": "robot_start",
+            "message0": "Robot 1",
+            "nextStatement": null,
+            "colour": 120,
+            "tooltip": "Start of the program for Robot 1.",
+            "helpUrl": "",
+            "hat": "cap"
+        },
+        {
+            "type": "math_infinity",
+            "message0": "∞",
+            "output": "Number",
+            "colour": 230,
+            "tooltip": "Infinity (capped at 1000 for safety)",
+            "helpUrl": ""
         }
     ]);
 }

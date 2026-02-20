@@ -17,40 +17,71 @@ export function injectBlockly() {
     const blocklyDiv = document.getElementById('blockly-container');
     const workspace = Blockly.inject(blocklyDiv, {
         toolbox: {
-            "kind": "flyoutToolbox",
+            "kind": "categoryToolbox",
             "contents": [
-              {
-                "kind": "block",
-                "type": "robot_move_forward"
-              },
-              {
-                "kind": "block",
-                "type": "robot_turn_left"
-              },
-              {
-                "kind": "block",
-                "type": "robot_turn_right"
-              },
-              {
-                "kind": "block",
-                "type": "robot_grab"
-              },
-              {
-                "kind": "block",
-                "type": "robot_drop"
-              },
-              {
-                "kind": "block",
-                "type": "controls_repeat_ext",
-                "inputs": {
-                    "TIMES": {
-                        "shadow": {
-                            "type": "math_number",
-                            "fields": { "NUM": 5 }
-                        }
-                    }
+                {
+                    "kind": "category",
+                    "name": "Robot",
+                    "colour": "120",
+                    "contents": [
+                        { "kind": "block", "type": "robot_start" },
+                        { "kind": "block", "type": "robot_move_forward" },
+                        { "kind": "block", "type": "robot_turn_left" },
+                        { "kind": "block", "type": "robot_turn_right" },
+                        { "kind": "block", "type": "robot_grab" },
+                        { "kind": "block", "type": "robot_drop" }
+                    ]
+                },
+                {
+                    "kind": "category",
+                    "name": "Control",
+                    "colour": "210",
+                    "contents": [
+                        {
+                            "kind": "block",
+                            "type": "controls_repeat_ext",
+                            "inputs": {
+                                "TIMES": {
+                                    "shadow": {
+                                        "type": "math_number",
+                                        "fields": { "NUM": 5 }
+                                    },
+                                    "block": {
+                                        "type": "math_infinity"
+                                    }
+                                }
+                            }
+                        },
+                        { "kind": "block", "type": "controls_if" },
+                        { "kind": "block", "type": "controls_whileUntil" }
+                    ]
+                },
+                {
+                    "kind": "category",
+                    "name": "Logic",
+                    "colour": "210",
+                    "contents": [
+                        { "kind": "block", "type": "logic_compare" },
+                        { "kind": "block", "type": "logic_operation" },
+                        { "kind": "block", "type": "logic_boolean" }
+                    ]
+                },
+                {
+                    "kind": "category",
+                    "name": "Math",
+                    "colour": "230",
+                    "contents": [
+                         { "kind": "block", "type": "math_number" },
+                         { "kind": "block", "type": "math_arithmetic" },
+                         { "kind": "block", "type": "math_infinity" }
+                    ]
+                },
+                {
+                    "kind": "category",
+                    "name": "Variables",
+                    "colour": "330",
+                    "custom": "VARIABLE"
                 }
-              }
             ]
         },
         scrollbars: true,
@@ -77,11 +108,58 @@ export function injectBlockly() {
         Blockly.svgResize(workspace);
     }, 0);
 
+    // Load saved workspace
+    const savedState = localStorage.getItem('blocklyWorkspace');
+    if (savedState) {
+        try {
+            Blockly.serialization.workspaces.load(JSON.parse(savedState), workspace);
+        } catch (e) {
+            console.error("Failed to load saved workspace:", e);
+        }
+    }
+
+    // Save workspace on change
+    workspace.addChangeListener((event) => {
+        // specific events that should trigger save (optional, but good practice to filter)
+        if (event.type === Blockly.Events.BLOCK_MOVE || 
+            event.type === Blockly.Events.BLOCK_CHANGE ||
+            event.type === Blockly.Events.BLOCK_DELETE ||
+            event.type === Blockly.Events.BLOCK_CREATE ||
+            event.type === Blockly.Events.VAR_CREATE ||
+            event.type === Blockly.Events.VAR_DELETE ||
+            event.type === Blockly.Events.VAR_RENAME) {
+                
+            const state = Blockly.serialization.workspaces.save(workspace);
+            localStorage.setItem('blocklyWorkspace', JSON.stringify(state));
+        }
+    });
+
     return workspace;
 }
 
 export function getWorkspaceCode(workspace) {
-    const code = javascriptGenerator.workspaceToCode(workspace);
+    // javascriptGenerator.init(workspace); // Ensure generator is initialized? It usually is.
+    
+    let code = '';
+    const startBlocks = workspace.getBlocksByType('robot_start', false); // false = only top level? No, checking hierarchy is expensive, just finding all is fine.
+    
+    if (startBlocks.length > 0) {
+        // If start blocks exist, generate code ONLY for them
+        console.log(`Found ${startBlocks.length} 'Robot 1' blocks.`);
+        // Just take the first one for now? Or concatenate all?
+        // Usually there's only one start block allowed/intended.
+        // Let's iterate all just in case user duplicated it.
+        startBlocks.forEach(block => {
+            const blockCode = javascriptGenerator.blockToCode(block);
+            // blockToCode returns String for statement blocks
+            code += blockCode;
+        });
+    } else {
+        // Fallback: Generate all code if no start block (Legacy behavior)
+        console.log("No 'Robot 1' block found, generating all code.");
+        code = javascriptGenerator.workspaceToCode(workspace);
+    }
+
     console.log("Generated Code:\n", code);
 
     const commandQueue = [];

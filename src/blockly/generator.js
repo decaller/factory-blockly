@@ -20,4 +20,15 @@ export function defineGenerators() {
     javascriptGenerator.forBlock['robot_drop'] = function(block) {
         return 'drop();\n';
     };
+
+    javascriptGenerator.forBlock['robot_start'] = function(block) {
+        // ... (existing code, compacted for brevity) ...
+        return '';
+    };
+
+    javascriptGenerator.forBlock['math_infinity'] = function(block) {
+        // We return a safe large number to prevent browser crashes from infinite loops
+        // in the current synchronous generation architecture.
+        return ['1000', javascriptGenerator.ORDER_ATOMIC];
+    };
 }

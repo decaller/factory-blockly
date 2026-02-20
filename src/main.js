@@ -21,6 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("GameScene not found");
             }
         });
+
+        document.getElementById('reset-button').addEventListener('click', () => {
+            const gameScene = game.scene.getScene('GameScene');
+            if (gameScene) {
+                gameScene.resetLevel();
+            }
+        });
     } else {
         console.error("Blockly container not found!");
     }

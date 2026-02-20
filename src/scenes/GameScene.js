@@ -16,7 +16,10 @@ export class GameScene extends Phaser.Scene {
     create() {
         this.drawGrid();
         this.createLevel();
+        // UI created in DOM now
     }
+
+
 
     drawGrid() {
         const graphics = this.add.graphics();
@@ -106,15 +109,27 @@ export class GameScene extends Phaser.Scene {
         this.robot.angle = 0;
 
         // Reset Crate
+        // Force detach from any container (e.g. robot) and add back to display list of Scene
+        this.add.existing(this.crate);
+        
+        this.crate.isCarried = false;
         this.crate.gridX = 3;
         this.crate.gridY = 3;
         this.crate.x = 3 * this.tileSize + this.tileSize / 2;
         this.crate.y = 3 * this.tileSize + this.tileSize / 2;
-        this.crate.isCarried = false;
         this.crate.setDepth(0);
         this.crate.setScale(1);
+        this.crate.setRotation(0);
         
         console.log("Level reset");
+        this.logPositions();
+    }
+
+    logPositions() {
+        console.log(`--- Position Log ---`);
+        console.log(`Robot: (${this.robot.gridX}, ${this.robot.gridY}) Direction: ${this.robot.direction}`);
+        console.log(`Crate: (${this.crate.gridX}, ${this.crate.gridY}) Carried: ${this.crate.isCarried}`);
+        console.log(`--------------------`);
     }
 
     // Helper to get coordinates in front of a position
@@ -128,26 +143,14 @@ export class GameScene extends Phaser.Scene {
         return { x: tx, y: ty };
     }
 
-    updateCrateVisuals(duration) {
-        if (this.crate.isCarried) {
-            // Crate should be in front of robot
-            const target = this.getForwardXY(this.robot.gridX, this.robot.gridY, this.robot.direction);
-            
-            this.tweens.add({
-                targets: this.crate,
-                x: target.x * this.tileSize + this.tileSize / 2,
-                y: target.y * this.tileSize + this.tileSize / 2,
-                duration: duration
-            });
-            // Update grid coords immediately for logic (or after tween? Logic needs immediacy)
-            this.crate.gridX = target.x;
-            this.crate.gridY = target.y;
-        }
-    }
-
     executeCommand(command) {
         return new Promise((resolve) => {
             const duration = 500;
+            const finish = () => {
+                this.logPositions();
+                resolve();
+            };
+
             switch (command) {
                 case 'MOVE_FORWARD':
                     console.log("Processing MOVE_FORWARD");
@@ -169,7 +172,6 @@ export class GameScene extends Phaser.Scene {
                         }
                         
                         // Collision logic for Carried Crate (Crate is IN FRONT of Robot)
-                        // If robot moves forward, crate also moves forward.
                         if (canMove && this.crate.isCarried) {
                             const nextCrate = this.getForwardXY(nextRobot.x, nextRobot.y, this.robot.direction);
                             
@@ -195,49 +197,81 @@ export class GameScene extends Phaser.Scene {
                             x: this.robot.gridX * this.tileSize + this.tileSize / 2,
                             y: this.robot.gridY * this.tileSize + this.tileSize / 2,
                             duration: duration,
-                            onComplete: () => resolve()
+                            onComplete: finish
                         });
 
-                        // Move crate if carried
+                        // Logic update for crate (visuals handled by container)
                         if (this.crate.isCarried) {
                              const nextCrate = this.getForwardXY(this.robot.gridX, this.robot.gridY, this.robot.direction);
                              this.crate.gridX = nextCrate.x;
                              this.crate.gridY = nextCrate.y;
-
-                             this.tweens.add({
-                                targets: this.crate,
-                                x: this.crate.gridX * this.tileSize + this.tileSize / 2,
-                                y: this.crate.gridY * this.tileSize + this.tileSize / 2,
-                                duration: duration
-                            });
+                             // No tween needed!
                         }
                     } else {
-                        resolve();
+                        finish();
                     }
                     break;
 
                 case 'TURN_LEFT':
+                    // Calculate next direction first
+                    const nextDirLeft = (this.robot.direction + 3) % 4;
+
+                    // Check if turning causes carried crate to hit a wall
+                    if (this.crate.isCarried) {
+                         const nextCratePos = this.getForwardXY(this.robot.gridX, this.robot.gridY, nextDirLeft);
+                         if (nextCratePos.x < 0 || nextCratePos.x >= this.gridSize || nextCratePos.y < 0 || nextCratePos.y >= this.gridSize) {
+                             console.log("Turn Blocked: Crate would hit wall");
+                             finish();
+                             return;
+                         }
+                    }
+
                     console.log("Ref: TURN_LEFT");
-                    this.robot.direction = (this.robot.direction + 3) % 4;
+                    this.robot.direction = nextDirLeft;
                     this.tweens.add({
                         targets: this.robot,
                         angle: this.robot.angle - 90,
                         duration: duration,
-                        onComplete: () => resolve()
+                        onComplete: finish
                     });
-                    this.updateCrateVisuals(duration);
+                    
+                    // Logic update for crate (Visuals orbit automatically)
+                    if (this.crate.isCarried) {
+                         const nextCrate = this.getForwardXY(this.robot.gridX, this.robot.gridY, this.robot.direction);
+                         this.crate.gridX = nextCrate.x;
+                         this.crate.gridY = nextCrate.y;
+                    }
                     break;
 
                 case 'TURN_RIGHT':
+                    // Calculate next direction first
+                    const nextDirRight = (this.robot.direction + 1) % 4;
+
+                    // Check if turning causes carried crate to hit a wall
+                    if (this.crate.isCarried) {
+                         const nextCratePos = this.getForwardXY(this.robot.gridX, this.robot.gridY, nextDirRight);
+                         if (nextCratePos.x < 0 || nextCratePos.x >= this.gridSize || nextCratePos.y < 0 || nextCratePos.y >= this.gridSize) {
+                             console.log("Turn Blocked: Crate would hit wall");
+                             finish();
+                             return;
+                         }
+                    }
+
                     console.log("Ref: TURN_RIGHT");
-                    this.robot.direction = (this.robot.direction + 1) % 4;
+                    this.robot.direction = nextDirRight;
                     this.tweens.add({
                         targets: this.robot,
                         angle: this.robot.angle + 90,
                         duration: duration,
-                        onComplete: () => resolve()
+                        onComplete: finish
                     });
-                    this.updateCrateVisuals(duration);
+                    
+                    // Logic update for crate (Visuals orbit automatically)
+                    if (this.crate.isCarried) {
+                         const nextCrate = this.getForwardXY(this.robot.gridX, this.robot.gridY, this.robot.direction);
+                         this.crate.gridX = nextCrate.x;
+                         this.crate.gridY = nextCrate.y;
+                    }
                     break;
 
                 case 'GRAB':
@@ -247,13 +281,27 @@ export class GameScene extends Phaser.Scene {
                     if (!this.crate.isCarried && grabTarget.x === this.crate.gridX && grabTarget.y === this.crate.gridY) {
                         this.crate.isCarried = true;
                         this.crate.setDepth(1);
-                        // Visual lift
+                        
+                        // CONTAINER ATTACHMENT
+                        // Remove from scene (implied by adding to container?) 
+                        // Phaser Container.add() automatically removes from previous parent (Scene).
+                        this.robot.add(this.crate);
+                        
+                        // Set Local Position (Front of robot)
+                        // Robot origin is center (32,32). +X is front.
+                        // We want crate center to be at +64 (one tile away).
+                        this.crate.setPosition(this.tileSize, 0);
+                        
+                        // Clear scale/rotation to match local space?
+                        this.crate.setRotation(0); 
+
+                        // Visual lift effect (Local tween)
                         this.tweens.add({
                             targets: this.crate,
                             scaleX: 1.2,
                             scaleY: 1.2,
                             duration: 200,
-                            yoyo: true, // "Hop" effect? No, just bigger
+                            yoyo: true, 
                             onComplete: () => {
                                  this.crate.setScale(1.2);
                             }
@@ -262,7 +310,7 @@ export class GameScene extends Phaser.Scene {
                     } else {
                         console.log("Nothing to grab in front");
                     }
-                    setTimeout(resolve, duration);
+                    setTimeout(finish, duration);
                     break;
 
                 case 'DROP':
@@ -271,16 +319,29 @@ export class GameScene extends Phaser.Scene {
                         this.crate.isCarried = false;
                         this.crate.setDepth(0);
                         this.crate.setScale(1.0);
+                        
+                        // CONTAINER DETACHMENT
+                        // Remove from container
+                        this.robot.remove(this.crate);
+                        // Add back to Scene (GameScene)
+                        this.add.existing(this.crate);
+                        
+                        // Set World Position based on Grid Logic (which is always up to date)
+                        const worldX = this.crate.gridX * this.tileSize + this.tileSize / 2;
+                        const worldY = this.crate.gridY * this.tileSize + this.tileSize / 2;
+                        this.crate.setPosition(worldX, worldY);
+                        this.crate.setRotation(0); // Reset rotation if any
+
                         console.log("Crate dropped!");
                      } else {
                         console.log("Nothing to drop");
                      }
-                     setTimeout(resolve, duration);
+                     setTimeout(finish, duration);
                      break;
 
                 default:
                     console.warn("Unknown command:", command);
-                    resolve();
+                    finish();
             }
         });
     }
