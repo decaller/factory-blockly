@@ -63,6 +63,79 @@ export function defineBlocks() {
             "colour": 230,
             "tooltip": "Infinity (capped at 1000 for safety)",
             "helpUrl": ""
+        },
+        // --- Detection / Sensor blocks ---
+        {
+            "type": "sensor_robot_x",
+            "message0": "robot X position",
+            "output": "Number",
+            "colour": 45,
+            "tooltip": "Returns the robot's current X grid coordinate.",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_robot_y",
+            "message0": "robot Y position",
+            "output": "Number",
+            "colour": 45,
+            "tooltip": "Returns the robot's current Y grid coordinate.",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_crate_x",
+            "message0": "crate X position",
+            "output": "Number",
+            "colour": 45,
+            "tooltip": "Returns the carried crate's X coordinate (or -1 if none).",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_crate_y",
+            "message0": "crate Y position",
+            "output": "Number",
+            "colour": 45,
+            "tooltip": "Returns the carried crate's Y coordinate (or -1 if none).",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_blocked",
+            "message0": "is blocked",
+            "output": "Boolean",
+            "colour": 45,
+            "tooltip": "Returns true if the robot cannot move forward.",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_crate_ahead",
+            "message0": "crate in front",
+            "output": "Boolean",
+            "colour": 45,
+            "tooltip": "Returns true if there is a crate directly in front of the robot.",
+            "helpUrl": ""
+        },
+        {
+            "type": "sensor_crate_color",
+            "message0": "front crate color",
+            "output": "String",
+            "colour": 45,
+            "tooltip": "Returns the color of the crate in front ('orange', or 'none').",
+            "helpUrl": ""
+        },
+        // --- Debug ---
+        {
+            "type": "debug_log",
+            "message0": "log ▸ %1",
+            "args0": [
+                {
+                    "type": "input_value",
+                    "name": "VALUE"
+                }
+            ],
+            "previousStatement": null,
+            "nextStatement": null,
+            "colour": 30,
+            "tooltip": "Logs a value to the console panel.",
+            "helpUrl": ""
         }
     ]);
 }

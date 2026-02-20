@@ -78,6 +78,28 @@ export function injectBlockly() {
                 },
                 {
                     "kind": "category",
+                    "name": "Sensors",
+                    "colour": "45",
+                    "contents": [
+                        { "kind": "block", "type": "sensor_robot_x" },
+                        { "kind": "block", "type": "sensor_robot_y" },
+                        { "kind": "block", "type": "sensor_crate_x" },
+                        { "kind": "block", "type": "sensor_crate_y" },
+                        { "kind": "block", "type": "sensor_blocked" },
+                        { "kind": "block", "type": "sensor_crate_ahead" },
+                        { "kind": "block", "type": "sensor_crate_color" }
+                    ]
+                },
+                {
+                    "kind": "category",
+                    "name": "Debug",
+                    "colour": "30",
+                    "contents": [
+                        { "kind": "block", "type": "debug_log" }
+                    ]
+                },
+                {
+                    "kind": "category",
                     "name": "Variables",
                     "colour": "330",
                     "custom": "VARIABLE"
@@ -141,21 +163,15 @@ export function getWorkspaceCode(workspace) {
     javascriptGenerator.init(workspace);
     
     let code = '';
-    const startBlocks = workspace.getBlocksByType('robot_start', false); // false = only top level? No, checking hierarchy is expensive, just finding all is fine.
+    const startBlocks = workspace.getBlocksByType('robot_start', false);
     
     if (startBlocks.length > 0) {
-        // If start blocks exist, generate code ONLY for them
         console.log(`Found ${startBlocks.length} 'Robot 1' blocks.`);
-        // Just take the first one for now? Or concatenate all?
-        // Usually there's only one start block allowed/intended.
-        // Let's iterate all just in case user duplicated it.
         startBlocks.forEach(block => {
             const blockCode = javascriptGenerator.blockToCode(block);
-            // blockToCode returns String for statement blocks
             code += blockCode;
         });
     } else {
-        // Fallback: Generate all code if no start block (Legacy behavior)
         console.log("No 'Robot 1' block found, generating all code.");
         code = javascriptGenerator.workspaceToCode(workspace);
     }
@@ -164,19 +180,116 @@ export function getWorkspaceCode(workspace) {
 
     const commandQueue = [];
 
-    // Define the API functions that the blocks call
-    const moveForward = () => commandQueue.push('MOVE_FORWARD');
-    const turnLeft = () => commandQueue.push('TURN_LEFT');
-    const turnRight = () => commandQueue.push('TURN_RIGHT');
-    const grab = () => commandQueue.push('GRAB');
-    const drop = () => commandQueue.push('DROP');
+    // --- Simulated state for sensor evaluation during code generation ---
+    const GRID_SIZE = 10;
+    const sim = {
+        robotX: 1, robotY: 1, direction: 0,
+        carriedCrate: null,
+        crates: [{ x: 0, y: 3, color: 'orange' }] // initial dispenser crate
+    };
+
+    function getForward(x, y, dir) {
+        if (dir === 0) return { x: x + 1, y };
+        if (dir === 1) return { x, y: y + 1 };
+        if (dir === 2) return { x: x - 1, y };
+        return { x, y: y - 1 };
+    }
+
+    function simCrateAt(gx, gy) {
+        return sim.crates.find(c => c.x === gx && c.y === gy) || null;
+    }
+
+    // Action functions that ALSO update simulated state
+    const moveForward = () => {
+        commandQueue.push('MOVE_FORWARD');
+        const next = getForward(sim.robotX, sim.robotY, sim.direction);
+        if (next.x >= 0 && next.x < GRID_SIZE && next.y >= 0 && next.y < GRID_SIZE) {
+            if (!simCrateAt(next.x, next.y)) {
+                sim.robotX = next.x;
+                sim.robotY = next.y;
+                if (sim.carriedCrate) {
+                    const nc = getForward(sim.robotX, sim.robotY, sim.direction);
+                    sim.carriedCrate.x = nc.x;
+                    sim.carriedCrate.y = nc.y;
+                }
+            }
+        }
+    };
+    const turnLeft = () => {
+        commandQueue.push('TURN_LEFT');
+        sim.direction = (sim.direction + 3) % 4;
+        if (sim.carriedCrate) {
+            const nc = getForward(sim.robotX, sim.robotY, sim.direction);
+            sim.carriedCrate.x = nc.x;
+            sim.carriedCrate.y = nc.y;
+        }
+    };
+    const turnRight = () => {
+        commandQueue.push('TURN_RIGHT');
+        sim.direction = (sim.direction + 1) % 4;
+        if (sim.carriedCrate) {
+            const nc = getForward(sim.robotX, sim.robotY, sim.direction);
+            sim.carriedCrate.x = nc.x;
+            sim.carriedCrate.y = nc.y;
+        }
+    };
+    const grab = () => {
+        commandQueue.push('GRAB');
+        if (!sim.carriedCrate) {
+            const front = getForward(sim.robotX, sim.robotY, sim.direction);
+            const c = simCrateAt(front.x, front.y);
+            if (c) {
+                sim.carriedCrate = c;
+            }
+        }
+    };
+    const drop = () => {
+        commandQueue.push('DROP');
+        if (sim.carriedCrate) {
+            sim.carriedCrate = null;
+        }
+    };
+
+    // Sensor / detection functions
+    const getRobotX = () => sim.robotX;
+    const getRobotY = () => sim.robotY;
+    const getCrateX = () => sim.carriedCrate ? sim.carriedCrate.x : -1;
+    const getCrateY = () => sim.carriedCrate ? sim.carriedCrate.y : -1;
+    const isBlocked = () => {
+        const next = getForward(sim.robotX, sim.robotY, sim.direction);
+        if (next.x < 0 || next.x >= GRID_SIZE || next.y < 0 || next.y >= GRID_SIZE) return true;
+        if (simCrateAt(next.x, next.y)) return true;
+        return false;
+    };
+    const isCrateAhead = () => {
+        const front = getForward(sim.robotX, sim.robotY, sim.direction);
+        return !!simCrateAt(front.x, front.y);
+    };
+    const getCrateColor = () => {
+        const front = getForward(sim.robotX, sim.robotY, sim.direction);
+        const c = simCrateAt(front.x, front.y);
+        return c ? c.color : 'none';
+    };
+
+    // Debug log function
+    const logValue = (label, val) => {
+        commandQueue.push('LOG:' + label + ':' + String(val));
+    };
 
     try {
-        // Create a function that takes our API as arguments and runs the user code
-        const runUserCode = new Function('moveForward', 'turnLeft', 'turnRight', 'grab', 'drop', code);
-        
-        // Execute it
-        runUserCode(moveForward, turnLeft, turnRight, grab, drop);
+        const runUserCode = new Function(
+            'moveForward', 'turnLeft', 'turnRight', 'grab', 'drop',
+            'getRobotX', 'getRobotY', 'getCrateX', 'getCrateY',
+            'isBlocked', 'isCrateAhead', 'getCrateColor',
+            'logValue',
+            code
+        );
+        runUserCode(
+            moveForward, turnLeft, turnRight, grab, drop,
+            getRobotX, getRobotY, getCrateX, getCrateY,
+            isBlocked, isCrateAhead, getCrateColor,
+            logValue
+        );
     } catch (e) {
         console.error("Error executing block code:", e);
     }

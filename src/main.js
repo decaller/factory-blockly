@@ -1,6 +1,11 @@
 import StartGame from './game/main';
 import { injectBlockly, getWorkspaceCode } from './blockly/workspace';
 
+function clearLog() {
+    const logOutput = document.getElementById('log-output');
+    if (logOutput) logOutput.innerHTML = '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
     const game = StartGame('game-container');
@@ -12,10 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const workspace = injectBlockly();
         
         document.getElementById('run-button').addEventListener('click', () => {
+            clearLog();
             const code = getWorkspaceCode(workspace);
-            // Access the running scene
             const gameScene = game.scene.getScene('GameScene');
             if (gameScene) {
+                gameScene.logStep = 0;
                 gameScene.runCommandQueue(code);
             } else {
                 console.error("GameScene not found");
@@ -23,10 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.getElementById('reset-button').addEventListener('click', () => {
+            clearLog();
             const gameScene = game.scene.getScene('GameScene');
             if (gameScene) {
+                gameScene.logStep = 0;
                 gameScene.resetLevel();
             }
+        });
+
+        document.getElementById('log-clear-button').addEventListener('click', () => {
+            clearLog();
         });
     } else {
         console.error("Blockly container not found!");

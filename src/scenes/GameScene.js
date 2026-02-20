@@ -49,6 +49,25 @@ export class GameScene extends Phaser.Scene {
         }
 
         graphics.strokePath();
+
+        // Grid axis numbers
+        const labelStyle = { fontSize: '12px', color: '#888888', fontFamily: 'monospace' };
+        // X-axis labels (bottom)
+        for (let x = 0; x < this.gridSize; x++) {
+            this.add.text(
+                x * this.tileSize + this.tileSize / 2,
+                this.gridSize * this.tileSize + 4,
+                `${x}`, labelStyle
+            ).setOrigin(0.5, 0);
+        }
+        // Y-axis labels (left)
+        for (let y = 0; y < this.gridSize; y++) {
+            this.add.text(
+                -4,
+                y * this.tileSize + this.tileSize / 2,
+                `${y}`, labelStyle
+            ).setOrigin(1, 0.5);
+        }
     }
 
     drawConveyorBelts() {
@@ -546,8 +565,27 @@ export class GameScene extends Phaser.Scene {
                 }
 
                 default:
-                    console.warn('Unknown command:', command);
-                    finish();
+                    // Handle LOG commands
+                    if (typeof command === 'string' && command.startsWith('LOG:')) {
+                        const rest = command.substring(4);
+                        const colonIdx = rest.indexOf(':');
+                        const label = colonIdx !== -1 ? rest.substring(0, colonIdx) : 'value';
+                        const logVal = colonIdx !== -1 ? rest.substring(colonIdx + 1) : rest;
+                        this.logStep = (this.logStep || 0) + 1;
+                        const logOutput = document.getElementById('log-output');
+                        if (logOutput) {
+                            const entry = document.createElement('div');
+                            entry.className = 'log-entry';
+                            entry.innerHTML = `<span class="log-step">#${this.logStep}</span><span class="log-label">${label}</span>: <span class="log-value">${logVal}</span>`;
+                            logOutput.appendChild(entry);
+                            logOutput.scrollTop = logOutput.scrollHeight;
+                        }
+                        console.log(`[LOG #${this.logStep}] ${label}: ${logVal}`);
+                        finish();
+                    } else {
+                        console.warn('Unknown command:', command);
+                        finish();
+                    }
             }
         });
     }
