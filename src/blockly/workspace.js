@@ -18,9 +18,6 @@ export function injectBlockly() {
   defineGenerators();
   registerContinuousToolbox();
 
-  defineBlocks();
-  defineGenerators();
-
   const blocklyDiv = document.getElementById("blockly-container");
   const workspace = Blockly.inject(blocklyDiv, {
     toolbox: {
@@ -72,6 +69,7 @@ export function injectBlockly() {
           contents: [
             { kind: "block", type: "logic_compare" },
             { kind: "block", type: "logic_operation" },
+            { kind: "block", type: "logic_negate" },
             { kind: "block", type: "logic_boolean" },
           ],
         },
@@ -92,7 +90,7 @@ export function injectBlockly() {
           contents: [
             { kind: "block", type: "sensor_blocked" },
             { kind: "block", type: "sensor_crate_ahead" },
-            { kind: "block", type: "sensor_crate_color" },
+            { kind: "block", type: "sensor_holding" },
           ],
         },
         {
@@ -108,11 +106,6 @@ export function injectBlockly() {
           custom: "VARIABLE",
         },
       ],
-    },
-    plugins: {
-      flyoutsVerticalToolbox: "ContinuousFlyout",
-      metricsManager: "ContinuousMetrics",
-      toolbox: "ContinuousToolbox",
     },
     scrollbars: true,
     trashcan: true,
@@ -174,6 +167,8 @@ export function injectBlockly() {
 }
 
 export function getWorkspaceCode(workspace) {
+  javascriptGenerator.INFINITE_LOOP_TRAP =
+    "if (--__loopTrap < 0) throw new Error('Infinite loop limit reached (1000).');\n";
   javascriptGenerator.init(workspace);
   const commandQueue = [];
   const GRID_SIZE = 10;
@@ -304,11 +299,7 @@ export function getWorkspaceCode(workspace) {
       const front = getForward(sim.robotX, sim.robotY, sim.direction);
       return !!simCrateAt(front.x, front.y);
     };
-    const getCrateColor = () => {
-      const front = getForward(sim.robotX, sim.robotY, sim.direction);
-      const c = simCrateAt(front.x, front.y);
-      return c ? c.color : "none";
-    };
+    const isHolding = () => !!sim.carriedCrate;
 
     const logValue = (label, val) => {
       pushAction("LOG:" + label + ":" + String(val));
@@ -324,9 +315,9 @@ export function getWorkspaceCode(workspace) {
         "drop",
         "isBlocked",
         "isCrateAhead",
-        "getCrateColor",
+        "isHolding",
         "logValue",
-        code,
+        `let __loopTrap = 1000;\n${code}`,
       );
       runUserCode(
         moveForward,
@@ -337,7 +328,7 @@ export function getWorkspaceCode(workspace) {
         drop,
         isBlocked,
         isCrateAhead,
-        getCrateColor,
+        isHolding,
         logValue,
       );
     } catch (e) {

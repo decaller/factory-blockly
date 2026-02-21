@@ -3,14 +3,22 @@ export function isOnBelt(gx, gy, belt) {
 }
 
 export function findEmptyDispenserCell() {
-  const emptyCells = this.dispenserBelt.filter((cell) => {
-    return !this.crates.some((c) => c.gridX === cell.x && c.gridY === cell.y);
-  });
+  const beltLength = this.dispenserBelt.length;
+  const startIndex = this.dispenserSpawnIndex || 0;
 
-  if (emptyCells.length === 0) return null;
+  for (let offset = 0; offset < beltLength; offset++) {
+    const idx = (startIndex + offset) % beltLength;
+    const cell = this.dispenserBelt[idx];
+    const occupied = this.crates.some(
+      (c) => c.gridX === cell.x && c.gridY === cell.y,
+    );
+    if (!occupied) {
+      this.dispenserSpawnIndex = (idx + 1) % beltLength;
+      return cell;
+    }
+  }
 
-  const randomIndex = Math.floor(Math.random() * emptyCells.length);
-  return emptyCells[randomIndex];
+  return null;
 }
 
 export function spawnCrate() {

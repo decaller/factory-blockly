@@ -43,8 +43,8 @@ export function defineGenerators() {
   javascriptGenerator.forBlock["sensor_crate_ahead"] = function (block) {
     return ["isCrateAhead()", javascriptGenerator.ORDER_FUNCTION_CALL];
   };
-  javascriptGenerator.forBlock["sensor_crate_color"] = function (block) {
-    return ["getCrateColor()", javascriptGenerator.ORDER_FUNCTION_CALL];
+  javascriptGenerator.forBlock["sensor_holding"] = function (block) {
+    return ["isHolding()", javascriptGenerator.ORDER_FUNCTION_CALL];
   };
 
   // --- Debug generators ---
@@ -63,7 +63,7 @@ export function defineGenerators() {
       const labelMap = {
         sensor_blocked: "is blocked",
         sensor_crate_ahead: "crate in front",
-        sensor_crate_color: "front crate color",
+        sensor_holding: "is holding crate",
         math_number: "number",
         math_infinity: "infinity",
         math_arithmetic: "math result",

@@ -1,4 +1,7 @@
 export async function runCommandQueue(commands) {
+  const runVersion = (this.executionVersion || 0) + 1;
+  this.executionVersion = runVersion;
+
   this.resetLevel();
   this.isRunning = true;
   this.isPaused = false;
@@ -19,7 +22,9 @@ export async function runCommandQueue(commands) {
 
   try {
     while ([...robotQueues.values()].some((q) => q.length > 0)) {
+      if (this.executionVersion !== runVersion) return;
       await this.waitIfPaused();
+      if (this.executionVersion !== runVersion) return;
       this.tickCount = (this.tickCount || 0) + 1;
       this.updateTickStatsUI();
       const step = [];
@@ -33,14 +38,17 @@ export async function runCommandQueue(commands) {
       if (step.length > 0) {
         await Promise.all(step);
       }
+      if (this.executionVersion !== runVersion) return;
 
       if (this.tickCount % 5 === 0 && this.findEmptyDispenserCell()) {
         this.spawnCrate();
       }
     }
   } finally {
-    this.isRunning = false;
-    this.isPaused = false;
+    if (this.executionVersion === runVersion) {
+      this.isRunning = false;
+      this.isPaused = false;
+    }
   }
 }
 
@@ -75,6 +83,7 @@ export function resetLevel() {
   this.tweens.killAll();
   this.tickCount = 0;
   this.resumeExecution();
+  this.dispenserSpawnIndex = 0;
   this.lastScoreTick = 0;
   this.totalTicksAfterScore = 0;
   this.scoreIntervals = 0;
@@ -125,6 +134,12 @@ export function resetLevel() {
 
   console.log("Level reset");
   this.logPositions();
+}
+
+export function cancelExecution() {
+  this.executionVersion = (this.executionVersion || 0) + 1;
+  this.isRunning = false;
+  this.resumeExecution();
 }
 
 export function updateTickStatsUI() {

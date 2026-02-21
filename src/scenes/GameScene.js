@@ -21,6 +21,7 @@ import {
   resumeExecution,
   togglePauseExecution,
   waitIfPaused,
+  cancelExecution,
 } from "./gameScene/flow";
 import { executeCommand } from "./gameScene/commands";
 
@@ -46,6 +47,8 @@ export class GameScene extends Phaser.Scene {
     this.isPaused = false;
     this.isRunning = false;
     this.pauseResumeResolver = null;
+    this.executionVersion = 0;
+    this.dispenserSpawnIndex = 0;
 
     this.dispenserBelt = [
       { x: 0, y: 3 },
@@ -88,5 +91,6 @@ Object.assign(GameScene.prototype, {
   resumeExecution,
   togglePauseExecution,
   waitIfPaused,
+  cancelExecution,
   executeCommand,
 });

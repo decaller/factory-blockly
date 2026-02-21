@@ -101,11 +101,11 @@ export function defineBlocks() {
       helpUrl: "",
     },
     {
-      type: "sensor_crate_color",
-      message0: "front crate color",
-      output: "String",
+      type: "sensor_holding",
+      message0: "is holding crate",
+      output: "Boolean",
       colour: 45,
-      tooltip: "Returns the color of the crate in front ('orange', or 'none').",
+      tooltip: "Returns true if the robot is currently holding a crate.",
       helpUrl: "",
     },
     // --- Debug ---

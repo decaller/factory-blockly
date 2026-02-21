@@ -52,6 +52,13 @@ function isRobotOccupied(scene, gx, gy, excludeRobotId) {
   return false;
 }
 
+function isRestrictedRobotCell(scene, gx, gy) {
+  return (
+    scene.isOnBelt(gx, gy, scene.dispenserBelt) ||
+    scene.isOnBelt(gx, gy, scene.receiverBelt)
+  );
+}
+
 export function executeCommand(command, robotId = 1) {
   return new Promise((resolve) => {
     const duration = 500;
@@ -91,6 +98,11 @@ export function executeCommand(command, robotId = 1) {
         ) {
           canMove = true;
 
+          if (isRestrictedRobotCell(this, nextRobot.x, nextRobot.y)) {
+            console.log("Blocked: Restricted conveyor zone");
+            canMove = false;
+          }
+
           const blockingCrate = this.getCrateAt(nextRobot.x, nextRobot.y);
           if (blockingCrate) {
             console.log("Blocked by crate");
@@ -162,6 +174,10 @@ export function executeCommand(command, robotId = 1) {
             carriedCrate.gridY = nextCrate.y;
           }
         } else {
+          handleLogCommand.call(
+            this,
+            `LOG:robot ${robotId}:blocked from moving`,
+          );
           finish();
         }
         break;
@@ -181,6 +197,11 @@ export function executeCommand(command, robotId = 1) {
         ) {
           canMove = true;
 
+          if (isRestrictedRobotCell(this, nextRobot.x, nextRobot.y)) {
+            console.log("Blocked: Restricted conveyor zone");
+            canMove = false;
+          }
+
           const blockingCrate = this.getCrateAt(nextRobot.x, nextRobot.y);
           if (blockingCrate) {
             console.log("Blocked by crate");
@@ -252,6 +273,10 @@ export function executeCommand(command, robotId = 1) {
             carriedCrate.gridY = nextCrate.y;
           }
         } else {
+          handleLogCommand.call(
+            this,
+            `LOG:robot ${robotId}:blocked from moving`,
+          );
           finish();
         }
         break;
@@ -269,6 +294,10 @@ export function executeCommand(command, robotId = 1) {
           );
           if (this.getCrateAt(leftOfHeldCrate.x, leftOfHeldCrate.y)) {
             console.log("Turn Blocked: Crate on left side of held crate");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
@@ -285,16 +314,28 @@ export function executeCommand(command, robotId = 1) {
             nextCratePos.y >= this.gridSize
           ) {
             console.log("Turn Blocked: Crate would hit wall");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
           if (this.getCrateAt(nextCratePos.x, nextCratePos.y)) {
             console.log("Turn Blocked: Crate would hit another crate");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
           if (isRobotOccupied(this, nextCratePos.x, nextCratePos.y, robotId)) {
             console.log("Turn Blocked: Crate would hit robot");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
@@ -332,6 +373,10 @@ export function executeCommand(command, robotId = 1) {
           );
           if (this.getCrateAt(rightOfHeldCrate.x, rightOfHeldCrate.y)) {
             console.log("Turn Blocked: Crate on right side of held crate");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
@@ -348,16 +393,28 @@ export function executeCommand(command, robotId = 1) {
             nextCratePos.y >= this.gridSize
           ) {
             console.log("Turn Blocked: Crate would hit wall");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
           if (this.getCrateAt(nextCratePos.x, nextCratePos.y)) {
             console.log("Turn Blocked: Crate would hit another crate");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
           if (isRobotOccupied(this, nextCratePos.x, nextCratePos.y, robotId)) {
             console.log("Turn Blocked: Crate would hit robot");
+            handleLogCommand.call(
+              this,
+              `LOG:robot ${robotId}:blocked from turning`,
+            );
             finish();
             return;
           }
@@ -465,6 +522,52 @@ export function executeCommand(command, robotId = 1) {
                 this.destroyCrate(crate);
               },
             });
+
+            if (this.score === 1 || this.score === 10) {
+              const pulse = this.add
+                .circle(
+                  worldX,
+                  worldY,
+                  12,
+                  this.score === 10 ? 0xffd54f : 0x80deea,
+                )
+                .setDepth(21)
+                .setAlpha(0.85);
+              this.tweens.add({
+                targets: pulse,
+                scaleX: 8,
+                scaleY: 8,
+                alpha: 0,
+                duration: 700,
+                ease: "Cubic.Out",
+                onComplete: () => pulse.destroy(),
+              });
+
+              const badge = this.add
+                .text(
+                  worldX,
+                  worldY - 40,
+                  this.score === 10 ? "MEGA SHIP!" : "FIRST SHIP!",
+                  {
+                    fontSize: this.score === 10 ? "30px" : "22px",
+                    color: this.score === 10 ? "#ffd54f" : "#80deea",
+                    fontStyle: "bold",
+                    stroke: "#000000",
+                    strokeThickness: 4,
+                  },
+                )
+                .setOrigin(0.5)
+                .setDepth(22);
+              this.tweens.add({
+                targets: badge,
+                y: worldY - 90,
+                angle: this.score === 10 ? 8 : -8,
+                alpha: 0,
+                duration: 1100,
+                ease: "Sine.Out",
+                onComplete: () => badge.destroy(),
+              });
+            }
 
             const feedbackText = this.add
               .text(worldX, worldY - 20, "+1", {
